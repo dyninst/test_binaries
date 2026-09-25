@@ -14,11 +14,13 @@ constant-bound control arrays in the same compilation unit.
 | `vla_clang_O0`            | `clang -g -O0 vla.c`         | `DW_AT_count` ref4                   |
 | `fortran_gfortran_O0`     | `gfortran -g -O0 bounds.f90` | lower/upper exprloc, lower/upper ref4 |
 | `fortran_gfortran_dwarf3` | `gfortran -g -gdwarf-3 -O0 bounds.f90` | lower/upper block1, lower/upper ref4 |
+| `const_ref_clang_O1`      | `clang -g -O1 const_ref.c`   | `DW_AT_count` ref4 to a DIE with `DW_AT_const_value` (a constant, not a runtime bound) |
+| `const_ref_gcc_O1`        | `gcc -g -O1 const_ref.c`     | `DW_AT_upper_bound` exprloc that is a single constant operation (`DW_OP_lit6`, `DW_OP_const2u`) |
 | `fortran_gfortran_relname` | `gfortran -g -O0 bounds.f90`, relative source name | as `fortran_gfortran_O0`; the unit's `DW_AT_name` is relative, so the Fortran default lower bound must come from the unit's `DW_AT_language` |
 
 The gcc/gfortran binaries were compiled (`-c`) with gcc 15.2.0 and linked with
 the system gcc 8.5 driver (libgfortran linked dynamically), so no RPATH is
-recorded; the clang one was built with clang 20 (ROCm 7.0.2). All use
+recorded; the clang ones were built with clang 20 (ROCm 7.0.2). All use
 `-ffile-prefix-map=<source dir>=/src`, the GNU ones also
 `-gno-record-gcc-switches`. Every source path is absolute except in
 `fortran_gfortran_relname`. The Fortran sources were compiled from `/mnt`
@@ -35,6 +37,14 @@ Expected bounds (`?` = runtime, i.e. unknown; `*` = not checked):
 | `vla_2d` | `b`      | `[0:?][0:?]`       |
 | `fixed`  | `c`      | `[0:9]`            |
 | `fixed`  | `d`      | `[0:2][0:3]`       |
+
+`const_ref.c` (C; both binaries describe constants: clang through a reference
+to `DW_AT_const_value`, gcc as a single constant operation)
+
+| function        | variable | bounds    |
+|-----------------|----------|-----------|
+| `const_vla`     | `a`      | `[0:6]`   |
+| `const_vla_300` | `b`      | `[0:299]` |
 
 `bounds.f90` (Fortran, default lower bound 1)
 
