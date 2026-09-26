@@ -14,6 +14,7 @@ constant-bound control arrays in the same compilation unit.
 | `vla_clang_O0`            | `clang -g -O0 vla.c`         | `DW_AT_count` ref4                   |
 | `fortran_gfortran_O0`     | `gfortran -g -O0 bounds.f90` | lower/upper exprloc, lower/upper ref4 |
 | `fortran_gfortran_dwarf3` | `gfortran -g -gdwarf-3 -O0 bounds.f90` | lower/upper block1, lower/upper ref4 |
+| `fortran_flang_O0`        | `flang-new -g -O0 bounds.f90` (ROCm 7.0.2) | lower bound exprloc and ref4; `DW_AT_count` exprloc and ref4; constant `DW_AT_count` with the default lower bound omitted |
 | `const_ref_clang_O1`      | `clang -g -O1 const_ref.c`   | `DW_AT_count` ref4 to a DIE with `DW_AT_const_value` (a constant, not a runtime bound) |
 | `const_ref_gcc_O1`        | `gcc -g -O1 const_ref.c`     | `DW_AT_upper_bound` exprloc that is a single constant operation (`DW_OP_lit6`, `DW_OP_const2u`) |
 | `fortran_gfortran_relname` | `gfortran -g -O0 bounds.f90`, relative source name | as `fortran_gfortran_O0`; the unit's `DW_AT_name` is relative, so the Fortran default lower bound must come from the unit's `DW_AT_language` |
@@ -26,6 +27,9 @@ recorded; the clang ones were built with clang 20 (ROCm 7.0.2). All use
 `fortran_gfortran_relname`. The Fortran sources were compiled from `/mnt`
 (a bind mount of this directory), because gfortran writes the source path it
 opens into its runtime error messages and ignores the prefix map there.
+`fortran_flang_O0` was also compiled from `/mnt`, which is the path it records:
+flang-new has no prefix-map option. It links the flang runtime statically
+(ROCm ships it only as `libFortranRuntime.a`), hence its size (about 860 KB).
 
 Expected bounds (`?` = runtime, i.e. unknown; `*` = not checked):
 
@@ -37,6 +41,19 @@ Expected bounds (`?` = runtime, i.e. unknown; `*` = not checked):
 | `vla_2d` | `b`      | `[0:?][0:?]`       |
 | `fixed`  | `c`      | `[0:9]`            |
 | `fixed`  | `d`      | `[0:2][0:3]`       |
+
+`bounds.f90` built with flang (Fortran, default lower bound 1). LLVM omits
+`DW_AT_lower_bound` when it equals the language default and describes the
+extent with `DW_AT_count`, so `u(10)` is `DW_AT_count 10` with no lower bound.
+
+| function                     | variable | bounds  |
+|------------------------------|----------|---------|
+| `_QQmain`                    | `z`      | `[*:?]` (runtime lower bound) |
+| `_QMshapesPassumed_shape`    | `x`      | `[1:?]` |
+| `_QMshapesPexplicit_dyn`     | `y`      | `[*:?]` (runtime lower bound) |
+| `_QMshapesPassumed_size`     | `v`      | `[1:?]` |
+| `_QMshapesPfixed`            | `w`      | `[3:7]` |
+| `_QMshapesPfixed`            | `u`      | `[1:10]` |
 
 `const_ref.c` (C; both binaries describe constants: clang through a reference
 to `DW_AT_const_value`, gcc as a single constant operation)
