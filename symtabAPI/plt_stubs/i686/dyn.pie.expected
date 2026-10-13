@@ -1,0 +1,7 @@
+# Stub address for each imported function, from objdump's <name@plt> labels.
+# Every pair below must appear in the function binding table.
+0x1040 printf
+0x1050 exit
+0x1060 strlen
+0x1070 __libc_start_main
+0x1080 abort

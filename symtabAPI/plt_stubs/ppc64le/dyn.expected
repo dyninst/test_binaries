@@ -1,0 +1,8 @@
+# Stub address for each imported function, from the .plt_call symbol on each stub.
+# Every pair below must appear in the function binding table.
+0x10000480 __gmon_start__
+0x100004e0 printf
+0x10000500 strlen
+0x10000520 exit
+0x10000540 __libc_start_main
+0x10000560 abort
