@@ -84,18 +84,30 @@ Dyninst computed, by whichever of these the file allows:
     names the `.plt` ones the relocations belong to
   - for ppc64le, the `.plt_call.<name>` symbol the linker leaves on each stub
 
+### Two expectations, not one
+
+`<binary>.expected` gives the stub each relocation belongs to, which is what
+`Symtab::getFuncBindingTable()` returns.  `<binary>.linkage` gives the stub a
+call lands on, which is what ParseAPI's linkage table has to name.  The two
+differ only where Intel CET adds a second PLT in `.plt.sec`: calls go there,
+while the relocations belong to the entries in `.plt`.  In `x86_64/dyn.cet`,
+`printf` is at 0x401050 in `.expected` and 0x401090 in `.linkage`.  Both come
+from what the linker recorded, not from Dyninst.
+
+`ppc64le/dyn` has no `.linkage` file: its call stubs have no `@plt` label to
+read.  The `.linkage` files also leave out the one `.plt.got` stub that
+`x86_64/dyn.pie`, `i686/dyn.pie` and `i686/dyn.pie.cet` each have, because
+Dyninst doesn't name it yet.
+
+ParseAPI named the `.plt.sec` stubs only on x86-64 until dyninst/dyninst#2482,
+which names them on i686 as well.  The `.linkage` files of `i686/dyn.cet` and
+`i686/dyn.pie.cet` check that.
+
 ### Two things that are not mistakes
 
-`x86_64/dyn.cet` and `i686/dyn.cet` expect addresses in `.plt`, not the
-`.plt.sec` addresses `objdump` labels.  Both are real: `.plt` holds the entry
-the relocation belongs to, `.plt.sec` the one calls go through, and ParseAPI
-maps names to the latter in a separate pass.
-
-ParseAPI names the `.plt.sec` stubs of `x86_64/dyn.cet` but not those of
-`i686/dyn.cet` or `i686/dyn.pie.cet`: the pass in `SymtabCodeSource::
-init_linkage` that does it is gated on x86-64.  The binding table, which is
-what the test reads, names the `.plt` entries in all three, so the tests pass
-either way; the two 32-bit files are kept as the reproducer for that gap.
+`x86_64/dyn.cet`, `i686/dyn.cet` and `i686/dyn.pie.cet` expect addresses in
+`.plt`, not the `.plt.sec` addresses `objdump` labels, because the `.expected`
+files give the entry the relocation belongs to.
 
 `ppc64le/dyn` yields twelve entries where six stubs exist: six from the
 `.plt_call` symbols, which are the stub addresses the `.expected` file names,
