@@ -1,0 +1,7 @@
+# Where a call to each imported function lands, from objdump's
+# <name@plt> labels.  Every pair must appear in the linkage table.
+0x8049090 printf
+0x80490a0 exit
+0x80490b0 strlen
+0x80490c0 __libc_start_main
+0x80490d0 abort

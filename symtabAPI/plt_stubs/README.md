@@ -84,6 +84,22 @@ Dyninst computed, by whichever of these the file allows:
     names the `.plt` ones the relocations belong to
   - for ppc64le, the `.plt_call.<name>` symbol the linker leaves on each stub
 
+### Two expectations, not one
+
+`<binary>.expected` gives the stub each relocation belongs to, which is what
+`Symtab::getFuncBindingTable()` returns.  `<binary>.linkage` gives the stub a
+call actually lands on, which is what ParseAPI's linkage table has to name.
+They are the same addresses except where a two-level PLT puts the second in
+`.plt.sec`, and each is read from the linker's own record rather than from
+Dyninst.
+
+`ppc64le/dyn` has no `.linkage` file: its call stubs carry no `@plt` label for
+an expectation to be read from.  The `.linkage` files also leave out the
+`.plt.got` entry that `x86_64/dyn.pie`, `i686/dyn.pie` and `i686/dyn.pie.cet`
+each have -- the relocation behind one is in `.rela.dyn` rather than
+`.rela.plt`, and Dyninst's scan of that section skips it when the section is
+16 bytes or smaller, which is every case here.
+
 ### Two things that are not mistakes
 
 `x86_64/dyn.cet` and `i686/dyn.cet` expect addresses in `.plt`, not the
