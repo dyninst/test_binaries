@@ -10,10 +10,11 @@ insert into at once
 ([#2410](https://github.com/dyninst/dyninst/issues/2410)).
 
 A supplementary file from multi-file dwz (`.gnu_debugaltlink`) is shared state
-too: walkers following `DW_FORM_GNU_ref_alt` into it grow its lazily built unit
-tree at once and corrupt it
-([#914](https://github.com/dyninst/dyninst/issues/914)), which can crash or
-leave a walker looping forever in `tfind()`.
+too: walkers following `DW_FORM_GNU_ref_alt` into it share its units. They
+insert into those units' `dwarf_getlocations()` caches at once, as above, which
+can crash a parse or leave a walker looping forever in `tfind()`, and they grow
+the file's lazily built unit tree at once, which can corrupt it and crash
+([#914](https://github.com/dyninst/dyninst/issues/914)).
 
 ## The binaries
 
