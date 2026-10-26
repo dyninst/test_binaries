@@ -15,53 +15,57 @@ tree at once and corrupt it
 ([#914](https://github.com/dyninst/dyninst/issues/914)), which can crash or
 leave a walker looping forever in `tfind()`.
 
-The binaries are built to make these likely: 24 compilation units that each use
-15 of the same 40 structs and 40 unions.
+## The binaries
 
-| binary                  | dwz          | where the shared types are |
-|-------------------------|--------------|----------------------------|
-| `shared_types_dwz.so`   | single-file  | partial units in its own `.debug_info` |
-| `shared_types_alt_a.so` | multi-file   | `shared_types.dwz`, named by `.gnu_debugaltlink` |
-| `shared_types_alt_b.so` | multi-file   | `shared_types.dwz`; exists so that dwz has two files to share types between |
+24 compilation units that each use 15 of the same 40 structs and 40 unions,
+processed by dwz in its two layouts. These are dwz's layouts, not split DWARF:
+every unit's DWARF is in the library itself or, for the multi-file layout, in
+the one supplementary file; there are no `.dwo` files.
 
-| property                       | `shared_types_dwz.so` | `shared_types_alt_a.so` |
-|--------------------------------|-------------|-------------|
-| compilation units              | 24          | 12          |
-| partial units                  | 78          | 34, and 53 in `shared_types.dwz` |
-| `DW_TAG_imported_unit`         | 429         | 202         |
-| types, fields (serial parse)   | 5495, 19106 | 2853, 10235 |
+| binary | DWARF | dwz | shared types in |
+|---|---|---|---|
+| `shared_types_dwz.so` | 4 | single-file | its partial units |
+| `shared_types_alt_a.so` | 4 | multi-file | `shared_types.dwz` |
+| `shared_types_alt_b.so` | 4 | multi-file | `shared_types.dwz` |
+| `shared_types_dwz5.so` | 5 | single-file | its partial units |
+| `shared_types_alt5_a.so` | 5 | multi-file | `shared_types5.dwz` |
+| `shared_types_alt5_b.so` | 5 | multi-file | `shared_types5.dwz` |
 
-With 32 OpenMP threads, even on two CPUs, a parse of `shared_types_dwz.so` on a
-shared handle found fewer types than the serial parse in most runs (16 of 20 to
-30 of 30, depending on load), with or without a lock around
-`dwarf_getlocations()`, and one of 74 parses tried crashed. A parallel parse of
-`shared_types_alt_a.so` on a shared supplementary handle was wrong or crashed
-in 58 of 60 runs. With private handles for every worker, both always matched
-the serial parse.
+The `_b` libraries exist so that dwz has two files to share types between;
+the tests use `_a`. Each library names its supplementary file relative to
+itself (`dwz -M`), so it is found next to it wherever the repository is
+checked out.
+
+What each one contains, counted with `eu-readelf --debug-dump=info`, and the
+types and fields of a serial parse with Dyninst:
+
+| | `dwz.so` | `alt_a.so` | `dwz5.so` | `alt5_a.so` |
+|---|---|---|---|---|
+| compilation units | 24 | 12 | 24 | 12 |
+| partial units | 77 | 34 | 77 | 35 |
+| in the `.dwz` | - | 53 | - | 36 |
+| `DW_TAG_imported_unit` | 440 | 202 | 426 | 202 |
+| types | 5456 | 2853 | 5479 | 2632 |
+| fields | 18999 | 10235 | 19089 | 8916 |
 
 ## Building
 
 `src/` holds the generated sources, written by
 
 ```
-./gen.py src 40 24 15
+./gen.py --structs 40 --units 24 --uses 15 src
 ```
 
-(structs, units, structs used per unit; the generator is seeded, so it should
-rewrite the same files, but `src/` is the reference). `build.sh` then
-compiles and runs dwz, with
-`CFLAGS="-O2 -g -fPIC -shared -ffile-prefix-map=$PWD/src=/src -gno-record-gcc-switches"`:
+The generator is seeded, so it rewrites the same files, but `src/` is the
+reference. `./build.sh` then compiles them and runs dwz, twice:
 
-```
-gcc $CFLAGS src/cu*.c -o shared_types_dwz.so
-dwz shared_types_dwz.so
+| DWARF | compiler | dwz | override with |
+|---|---|---|---|
+| 4 | gcc 8.5.0 (Red Hat 8.5.0-18) | 0.12 | `CC4`, `DWZ4` |
+| 5 | gcc 12.2.1 (gcc-toolset-12) | 0.14 | `CC5`, `DWZ5` |
 
-gcc $CFLAGS src/cu[0-9].c src/cu1[01].c -o shared_types_alt_a.so
-gcc $CFLAGS src/cu1[2-9].c src/cu2[0-3].c -o shared_types_alt_b.so
-dwz -m shared_types.dwz -M shared_types.dwz shared_types_alt_a.so shared_types_alt_b.so
-```
-
-`-M` records the supplementary file's name relative to the libraries, so it is
-found next to them wherever the repository is checked out.
-
-The binary was built with gcc 8.5.0 (Red Hat 8.5.0-18) and dwz 0.12.
+dwz handles DWARF 5 from 0.14 on, so the DWARF 5 build needs a newer dwz than
+RHEL 8 ships. `build.sh` lists the units in a fixed order, since their order
+decides how dwz partitions the types, and maps the build directory to `.`
+(`-ffile-prefix-map=$PWD=.`), so a rebuild anywhere with the same tools gives
+the same bytes.
