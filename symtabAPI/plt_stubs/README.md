@@ -133,7 +133,7 @@ files give the entry the relocation belongs to.
 and six more in the data `.plt` that the generic path adds.  Only the first six
 are asserted.
 
-`objdump` labels the code at 0x2e0 in `aarch64/libtlsdesc.so` `ext_tls@plt`.
+`objdump` labels the code at 0x2b0 in `aarch64/libtlsdesc.so` `ext_tls@plt`.
 It is the lazy TLSDESC trampoline (`DT_TLSDESC_PLT`), not a stub for `ext_tls`:
 `objdump` names the `.plt` entries in `.rela.plt` order.  The `.expected` files
 of all three `libtlsdesc.so` leave `ext_tls` out.  In `x86_64/libtlsdesc.so`
