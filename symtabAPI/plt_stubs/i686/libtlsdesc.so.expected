@@ -1,0 +1,4 @@
+# Stub address for each imported function, from objdump's <name@plt> labels.
+# Every pair below must appear in the function binding table.  ext_tls is
+# not here: its relocation is a TLSDESC one, with no stub of its own.
+0x1010 ext_func
