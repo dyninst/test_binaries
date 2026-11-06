@@ -29,14 +29,23 @@ rather than building them during the test.
 | `aarch64/libtlsdesc.so` | a shared library whose `.rela.plt` holds a TLSDESC relocation, which has no stub of its own, beside an ordinary one |
 | `x86_64/libtlsdesc.so` | the same for x86-64 (`-mtls-dialect=gnu2`), where the relocation's slot in the count is the lazy TLSDESC trampoline |
 | `i686/libtlsdesc.so` | the same for i686, in `.rel.plt` |
+| `riscv64/libplt_only.so` | `DT_RELA` and `DT_JMPREL` naming the same section, as in `riscv64/dyn`, in a shared library |
+| `riscv64/dyn.pie.plt_only` | the same in a position independent executable |
 
 `riscv64/libzicfilp.so` is the library `riscv64/dyn.zicfilp` imports from.  The
 test does not open it; it is here so the executable's `DT_NEEDED` can be
-resolved by anyone looking at it by hand.
+resolved by anyone looking at it by hand.  `riscv64/libplt_only.so` is likewise
+the library `riscv64/dyn.pie.plt_only` imports `bar` from.
+
+The two `plt_only` files are for dyninst/dyninst#2588's
+`symtabAPI_rela_jmprel_shared` test, which rewrites them.  `emitElf` moves a
+shared library or PIE up by a page, which an executable linked `-no-pie` does
+not exercise.
 
 ### How they were built
 
-All but one are built from `src/plt_stubs.c` in this directory, as
+The executables other than `riscv64/dyn.zicfilp` and `riscv64/dyn.pie.plt_only`
+are built from `src/plt_stubs.c` in this directory, as
 
 ```
 $CC $EXTRA -fcf-protection=none -no-pie -o <arch>/dyn src/plt_stubs.c
@@ -86,6 +95,23 @@ gcc -shared -nostdlib -o x86_64/libtlsdesc.so tlsdesc.o
 gcc -m32 -O2 -fPIC -mtls-dialect=gnu2 -c src/tlsdesc.c
 gcc -m32 -shared -nostdlib -o i686/libtlsdesc.so tlsdesc.o
 ```
+
+`riscv64/libplt_only.so` and `riscv64/dyn.pie.plt_only` are assembled from
+`src/plt_only_lib.s` and `src/plt_only_pie.s` and linked without a C library,
+so their only dynamic relocations are one `R_RISCV_JUMP_SLOT` each.  GNU ld
+then points `DT_RELA` at `.rela.plt`.  They were built on an x86-64 host with
+binutils 2.46 configured `--target=riscv64-linux-gnu`:
+
+```
+as -march=rv64gc -o lib.o src/plt_only_lib.s
+as -march=rv64gc -o pie.o src/plt_only_pie.s
+ld -shared -soname libplt_only.so -o riscv64/libplt_only.so lib.o
+ld -pie --allow-shlib-undefined --dynamic-linker /lib/ld-linux-riscv64-lp64d.so.1 \
+   -o riscv64/dyn.pie.plt_only pie.o riscv64/libplt_only.so
+```
+
+`--allow-shlib-undefined` is needed because nothing defines the `foo` that
+`libplt_only.so` imports; the files are never run.
 
 ### The expected addresses
 
