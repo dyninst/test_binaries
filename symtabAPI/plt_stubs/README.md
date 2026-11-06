@@ -26,6 +26,9 @@ rather than building them during the test.
 | `ppc64le/dyn` | ELFv2, where `.plt` holds data and the call stubs are in `.text`, found through `.plt_call` symbols |
 | `riscv64/dyn` | a 32-byte PLT header, and a binary whose only dynamic relocations are its PLT's, so `DT_RELA` and `DT_JMPREL` name the same section |
 | `riscv64/dyn.zicfilp` | the 48-byte header of the Zicfilp PLT, for landing-pad control flow integrity |
+| `aarch64/libtlsdesc.so` | a shared library whose `.rela.plt` holds a TLSDESC relocation, which has no stub of its own, beside an ordinary one |
+| `x86_64/libtlsdesc.so` | the same for x86-64 (`-mtls-dialect=gnu2`), where the relocation's slot in the count is the lazy TLSDESC trampoline |
+| `i686/libtlsdesc.so` | the same for i686, in `.rel.plt` |
 
 `riscv64/libzicfilp.so` is the library `riscv64/dyn.zicfilp` imports from.  The
 test does not open it; it is here so the executable's `DT_NEEDED` can be
@@ -68,6 +71,22 @@ ordinary PLT.
 | ppc64le | llnl | RHEL 8.8 | gcc 8.5.0 | ld 2.30 |
 | riscv64 | fireflyk3-1 | Ubuntu 26.04 | gcc 15.2.0 | ld 2.46 |
 
+The three `libtlsdesc.so` files are built from `src/tlsdesc.c` without a C
+library, on an x86-64 host running Rocky Linux 8.8. aarch64 uses clang 15.0.7
+and a GNU ld 2.46 built for aarch64; x86_64 and i686 use gcc 12.2.1 and GNU ld
+2.38 from gcc-toolset-12:
+
+```
+clang --target=aarch64-linux-gnu -O2 -fPIC -c src/tlsdesc.c
+ld -shared -o aarch64/libtlsdesc.so tlsdesc.o
+
+gcc -O2 -fPIC -mtls-dialect=gnu2 -c src/tlsdesc.c
+gcc -shared -nostdlib -o x86_64/libtlsdesc.so tlsdesc.o
+
+gcc -m32 -O2 -fPIC -mtls-dialect=gnu2 -c src/tlsdesc.c
+gcc -m32 -shared -nostdlib -o i686/libtlsdesc.so tlsdesc.o
+```
+
 ### The expected addresses
 
 Each binary has a `.expected` file beside it listing the stub address for each
@@ -103,7 +122,7 @@ ParseAPI named the `.plt.sec` stubs only on x86-64 until dyninst/dyninst#2482,
 which names them on i686 as well.  The `.linkage` files of `i686/dyn.cet` and
 `i686/dyn.pie.cet` check that.
 
-### Two things that are not mistakes
+### Three things that are not mistakes
 
 `x86_64/dyn.cet`, `i686/dyn.cet` and `i686/dyn.pie.cet` expect addresses in
 `.plt`, not the `.plt.sec` addresses `objdump` labels, because the `.expected`
@@ -113,3 +132,9 @@ files give the entry the relocation belongs to.
 `.plt_call` symbols, which are the stub addresses the `.expected` file names,
 and six more in the data `.plt` that the generic path adds.  Only the first six
 are asserted.
+
+`objdump` labels the code at 0x2b0 in `aarch64/libtlsdesc.so` `ext_tls@plt`.
+It is the lazy TLSDESC trampoline (`DT_TLSDESC_PLT`), not a stub for `ext_tls`:
+`objdump` names the `.plt` entries in `.rela.plt` order.  The `.expected` files
+of all three `libtlsdesc.so` leave `ext_tls` out.  In `x86_64/libtlsdesc.so`
+the trampoline is at 0x1020, right after the one stub; i686 has none.
