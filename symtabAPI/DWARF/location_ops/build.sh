@@ -16,8 +16,10 @@ GXX5=${GXX5:-/opt/rh/gcc-toolset-12/root/usr/bin/g++}
 MAP="-fdebug-prefix-map=$PWD=."
 GNO=-gno-record-gcc-switches
 
-$CLANG -O2 -gdwarf-5 $MAP src/location_ops.c -o clang_dwarf5
-$CLANG -O2 -gdwarf-4 $MAP src/location_ops.c -o clang_dwarf4
+# clang names the source by an absolute path (mapped to /build), so that
+# DW_AT_decl_file is never 0 (dyninst#2421).
+$CLANG -O2 -gdwarf-5 -fdebug-prefix-map="$PWD=/build" "$PWD/src/location_ops.c" -o clang_dwarf5
+$CLANG -O2 -gdwarf-4 -fdebug-prefix-map="$PWD=/build" "$PWD/src/location_ops.c" -o clang_dwarf4
 $GCC5 -O2 -gdwarf-5 $MAP $GNO src/location_ops.c -o gcc_dwarf5
 $GCC4 -O2 -gdwarf-4 $MAP $GNO src/location_ops.c -o gcc_dwarf4
 $GXX5 -O2 -gdwarf-5 $MAP $GNO src/param_ref.cpp -o gxx_param_ref

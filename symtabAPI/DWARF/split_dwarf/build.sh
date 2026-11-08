@@ -14,14 +14,17 @@ GCC4=${GCC4:-/usr/bin/gcc}
 GCC5=${GCC5:-/opt/rh/gcc-toolset-12/root/usr/bin/gcc}
 MAP="-fdebug-prefix-map=$PWD=."
 
-build() { # <compiler> <flags> <name>
-  $1 $2 $MAP -O0 -c src/split.c -o $3.o
-  $1 $3.o -o $3
-  rm -f $3.o
+build() { # <compiler> <flags> <source> <name>
+  $1 $2 -O0 -c $3 -o $4.o
+  $1 $4.o -o $4
+  rm -f $4.o
 }
 
-build $CLANG "-gdwarf-5 -gsplit-dwarf" clang_dwarf5_split
-build $GCC5 "-gdwarf-5 -gsplit-dwarf -gno-record-gcc-switches" gcc_dwarf5_split
-build $CLANG "-gdwarf-4 -gsplit-dwarf" clang_dwarf4_split
-build $GCC4 "-gdwarf-4 -gsplit-dwarf -gno-record-gcc-switches" gcc_dwarf4_split
-build $GCC5 "-gdwarf-5 -gno-record-gcc-switches" gcc_dwarf5
+# clang names the source by an absolute path (mapped to /build), so that
+# DW_AT_decl_file is never 0 (dyninst#2421).
+CLANG_SRC="-fdebug-prefix-map=$PWD=/build $PWD/src/split.c"
+build $CLANG "-gdwarf-5 -gsplit-dwarf" "$CLANG_SRC" clang_dwarf5_split
+build $GCC5 "-gdwarf-5 -gsplit-dwarf -gno-record-gcc-switches $MAP" src/split.c gcc_dwarf5_split
+build $CLANG "-gdwarf-4 -gsplit-dwarf" "$CLANG_SRC" clang_dwarf4_split
+build $GCC4 "-gdwarf-4 -gsplit-dwarf -gno-record-gcc-switches $MAP" src/split.c gcc_dwarf4_split
+build $GCC5 "-gdwarf-5 -gno-record-gcc-switches $MAP" src/split.c gcc_dwarf5
