@@ -8,7 +8,7 @@ can't match the variable to its symbol, and the variable keeps no type.
 
 ## The binaries
 
-One program, `src/global_vars.c`, built five ways at `-O0`:
+One program, `src/global_vars.c`, built five ways at `-O0`, all for x86_64 Linux:
 
 | binary | compiler | DWARF | locations | `DW_AT_decl_file` 0 |
 |---|---|---|---|---|
